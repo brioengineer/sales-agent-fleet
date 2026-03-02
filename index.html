@@ -109,22 +109,38 @@ Make the script feel natural and confident, not robotic.`,
       const [testing, setTesting] = useState(false);
 
       const handleUnlock = async () => {
-        if (!key.startsWith("sk-ant-")) {
-          setError("That doesn't look like a valid Anthropic API key (should start with sk-ant-)");
-          return;
-        }
+        if (!key.trim()) return;
         setTesting(true);
         setError("");
         try {
           const res = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
-            headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": key.trim(),
+              "anthropic-version": "2023-06-01",
+              "anthropic-dangerous-direct-browser-access": "true",
+            },
             body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 10, messages: [{ role: "user", content: "hi" }] }),
           });
-          if (res.ok) { onUnlock(key); }
-          else { setError("API key rejected. Double-check it in your Anthropic console."); }
-        } catch {
-          setError("Connection error. Check your internet and try again.");
+          if (res.ok) {
+            onUnlock(key.trim());
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            const errType = errData?.error?.type || "";
+            const errMsg = errData?.error?.message || "";
+            if (res.status === 401 || errType === "authentication_error") {
+              setError("❌ Invalid API key. Copy it fresh from console.anthropic.com → API Keys.");
+            } else if (res.status === 403 || errType === "permission_error") {
+              setError("❌ Key valid but access denied. Make sure billing is set up at console.anthropic.com.");
+            } else if (res.status === 429) {
+              setError("❌ Rate limit or no credits. Add billing at console.anthropic.com → Plans.");
+            } else {
+              setError(`❌ Error ${res.status}: ${errMsg || "Unknown error. Try again."}`);
+            }
+          }
+        } catch (e) {
+          setError("❌ Could not reach Anthropic. Check your internet connection and try again.");
         }
         setTesting(false);
       };
@@ -139,11 +155,11 @@ Make the script feel natural and confident, not robotic.`,
               Your key stays in your browser — it's never stored anywhere.
             </p>
             <input
-              type="password"
+              type="text"
               value={key}
-              onChange={e => setKey(e.target.value)}
+              onChange={e => setKey(e.target.value.trim())}
               onKeyDown={e => e.key === "Enter" && handleUnlock()}
-              placeholder="sk-ant-api03-..."
+              placeholder="Paste your Anthropic API key here"
               style={{
                 width: "100%", background: "#181818", border: "1px solid #333", borderRadius: "10px",
                 color: "#fff", fontFamily: "'IBM Plex Mono', monospace", fontSize: "13px",
