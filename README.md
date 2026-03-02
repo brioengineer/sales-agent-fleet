@@ -15,7 +15,7 @@
 | ⚔️ **Battlecard Bot** | Instant competitive positioning against any rival |
 | 🧠 **Call Coach** | Real-time script and talk track for awkward call moments |
 
-## 🔑 How Your Team Uses It
+## 🔑 How To Use It
 
 Each team member needs their own Anthropic API key (or you can share one key with the team).
 
