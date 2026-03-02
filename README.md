@@ -82,4 +82,4 @@ Edit the `systemPrompt` to change behavior, or copy-paste an agent block to add 
 
 ---
 
-*Built with Claude. Powered by the Anthropic API.*
+*Built with some help from Claude. Powered by the Anthropic API.*
