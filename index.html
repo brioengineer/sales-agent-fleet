@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Agent Fleet</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #080808; color: #fff; font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #111; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .agent-card { animation: fadeUp 0.5s ease forwards; }
+    textarea { font-family: 'IBM Plex Mono', monospace !important; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    const AGENTS = [
+      {
+        id: "objection", icon: "🛡️", name: "Objection Crusher",
+        tagline: "Turn NO into NOT YET", color: "#FF4D00", accent: "#FF6B35",
+        systemPrompt: `You are an elite sales objection handler. When given an objection, provide:
+1. A brief acknowledgment that validates the prospect's concern (1 sentence)
+2. A reframe or pivot (2-3 sentences)
+3. A closing question to move forward (1 sentence)
+Be direct, confident, and human. No bullet points — write in natural sales conversation style. Keep it under 120 words total.`,
+        placeholder: "Paste the objection here... e.g. 'Your price is too high' or 'We're happy with our current vendor'",
+      },
+      {
+        id: "email", icon: "⚡", name: "Follow-Up Forge",
+        tagline: "Emails that actually get replies", color: "#0066FF", accent: "#338BFF",
+        systemPrompt: `You are a master B2B sales email writer. Write a short, punchy follow-up email based on the context provided.
+Rules:
+- Subject line that creates curiosity, not spam
+- Under 100 words in the body
+- One clear CTA at the end
+- Sound like a human, not a template
+- No fluff, no "I hope this email finds you well"
+Format as:
+SUBJECT: [subject line]
+
+[email body]`,
+        placeholder: "Describe the context... e.g. 'Met at a conference, interested in our CRM, went cold after demo 2 weeks ago'",
+      },
+      {
+        id: "discovery", icon: "🔍", name: "Discovery Driller",
+        tagline: "Ask questions that uncover pain", color: "#00B894", accent: "#00D4AA",
+        systemPrompt: `You are a consultative sales coach specializing in discovery calls. Given a prospect's company/role/situation, generate 5 powerful discovery questions.
+Questions should:
+- Uncover pain, urgency, and budget indirectly
+- Be open-ended and thought-provoking
+- Progress from situational → problem → implication → need-payoff (SPIN style)
+- Feel like a strategic conversation, not an interrogation
+Number them 1-5. Keep each question concise. Add a one-line note on WHY each question matters.`,
+        placeholder: "Describe the prospect... e.g. 'VP of Sales at a 50-person SaaS company, scaling from 5 to 20 reps, using spreadsheets'",
+      },
+      {
+        id: "closer", icon: "🎯", name: "Deal Strategist",
+        tagline: "Your next move to close", color: "#8B00FF", accent: "#A533FF",
+        systemPrompt: `You are a seasoned sales strategist. Given a deal situation, provide a crisp action plan.
+Respond with:
+**DEAL HEALTH**: [Green/Yellow/Red] — one sentence why
+**BIGGEST RISK**: What could kill this deal (1-2 sentences)
+**YOUR NEXT 3 MOVES**: Specific, tactical actions ranked by priority
+**CLOSING QUESTION TO USE**: One question to ask in the next call
+Be direct and ruthlessly practical. No generic advice.`,
+        placeholder: "Describe the deal... e.g. 'SMB prospect, 3 stakeholders, champion loves us but CFO is skeptical, proposal sent 1 week ago, $18k ARR'",
+      },
+      {
+        id: "competitive", icon: "⚔️", name: "Battlecard Bot",
+        tagline: "Win against any competitor", color: "#C0392B", accent: "#E74C3C",
+        systemPrompt: `You are a competitive intelligence analyst for a sales team. Given a competitor name and context, provide a quick battlecard.
+Format:
+**THEIR WEAKNESSES** (3 bullet points — real, specific gaps)
+**YOUR ANGLES** (3 talking points that make you shine by contrast)
+**LANDMINES TO PLANT** (2 questions to ask prospects that make them doubt the competitor)
+**WATCH OUT FOR** (1 thing the competitor does well that you need to counter)
+Be honest and strategic. Don't trash-talk — position smartly.`,
+        placeholder: "Name the competitor + any context... e.g. 'Competing against Salesforce for a mid-market deal, prospect says SF is too complex'",
+      },
+      {
+        id: "coach", icon: "🧠", name: "Call Coach",
+        tagline: "Real-time talk track help", color: "#D4A017", accent: "#F0C040",
+        systemPrompt: `You are an expert sales call coach. Given a scenario or what was said on a call, provide immediate coaching.
+Respond with:
+**WHAT HAPPENED**: Quick read of the situation (1 sentence)
+**WHAT TO SAY NEXT**: Exact words/script to use — write it as if you're the rep speaking
+**TONE TIPS**: 1-2 sentences on delivery (pace, energy, silence, etc.)
+**AVOID**: One thing NOT to say in this situation
+Make the script feel natural and confident, not robotic.`,
+        placeholder: "Describe what's happening on the call... e.g. 'Prospect just said they need to think about it and will get back to me next month'",
+      },
+    ];
+
+    function ApiKeyGate({ onUnlock }) {
+      const [key, setKey] = useState("");
+      const [error, setError] = useState("");
+      const [testing, setTesting] = useState(false);
+
+      const handleUnlock = async () => {
+        if (!key.startsWith("sk-ant-")) {
+          setError("That doesn't look like a valid Anthropic API key (should start with sk-ant-)");
+          return;
+        }
+        setTesting(true);
+        setError("");
+        try {
+          const res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+            body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 10, messages: [{ role: "user", content: "hi" }] }),
+          });
+          if (res.ok) { onUnlock(key); }
+          else { setError("API key rejected. Double-check it in your Anthropic console."); }
+        } catch {
+          setError("Connection error. Check your internet and try again.");
+        }
+        setTesting(false);
+      };
+
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080808", padding: "24px" }}>
+          <div style={{ maxWidth: "480px", width: "100%", background: "#0f0f0f", border: "1px solid #2a2a2a", borderRadius: "20px", padding: "48px", textAlign: "center" }}>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🚀</div>
+            <div style={{ fontFamily: "'Bebas Neue', cursive", fontSize: "32px", letterSpacing: "3px", marginBottom: "8px" }}>SALES AGENT FLEET</div>
+            <p style={{ color: "#666", fontSize: "14px", marginBottom: "32px", lineHeight: 1.7 }}>
+              Enter your Anthropic API key to unlock all 6 agents.<br />
+              Your key stays in your browser — it's never stored anywhere.
+            </p>
+            <input
+              type="password"
+              value={key}
+              onChange={e => setKey(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleUnlock()}
+              placeholder="sk-ant-api03-..."
+              style={{
+                width: "100%", background: "#181818", border: "1px solid #333", borderRadius: "10px",
+                color: "#fff", fontFamily: "'IBM Plex Mono', monospace", fontSize: "13px",
+                padding: "14px 16px", outline: "none", marginBottom: "12px",
+              }}
+            />
+            {error && <p style={{ color: "#FF4D00", fontSize: "12px", marginBottom: "12px", fontFamily: "monospace" }}>{error}</p>}
+            <button
+              onClick={handleUnlock}
+              disabled={testing || !key}
+              style={{
+                width: "100%", background: testing ? "#333" : "linear-gradient(135deg, #FF4D00, #FF6B35)",
+                border: "none", borderRadius: "10px", color: "#fff",
+                fontFamily: "'Bebas Neue', cursive", fontSize: "18px", letterSpacing: "2px",
+                padding: "14px", cursor: testing || !key ? "not-allowed" : "pointer",
+                opacity: !key ? 0.5 : 1,
+              }}
+            >
+              {testing ? "CHECKING KEY..." : "UNLOCK AGENTS"}
+            </button>
+            <p style={{ color: "#444", fontSize: "11px", marginTop: "20px", fontFamily: "monospace", lineHeight: 1.8 }}>
+              Get your API key at console.anthropic.com<br />
+              Each query costs ~$0.01–0.03 on your account
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    function AgentCard({ agent, apiKey }) {
+      const [input, setInput] = useState("");
+      const [response, setResponse] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [active, setActive] = useState(false);
+
+      const runAgent = async () => {
+        if (!input.trim()) return;
+        setLoading(true);
+        setResponse("");
+        setActive(true);
+        try {
+          const res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
+              "anthropic-dangerous-direct-browser-access": "true",
+            },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-20250514",
+              max_tokens: 1000,
+              system: agent.systemPrompt,
+              messages: [{ role: "user", content: input }],
+            }),
+          });
+          const data = await res.json();
+          const text = data.content?.map(c => c.text || "").join("\n") || "No response received.";
+          setResponse(text);
+        } catch {
+          setResponse("⚠️ Error reaching the agent. Check your API key and try again.");
+        }
+        setLoading(false);
+      };
+
+      const reset = () => { setInput(""); setResponse(""); setActive(false); };
+
+      const renderResponse = (text) =>
+        text.split(/(\*\*.*?\*\*)/).map((part, i) =>
+          part.startsWith("**") && part.endsWith("**")
+            ? <strong key={i} style={{ color: agent.accent, fontWeight: "700" }}>{part.slice(2, -2)}</strong>
+            : <span key={i}>{part}</span>
+        );
+
+      return (
+        <div style={{
+          background: active ? "linear-gradient(135deg, #111 0%, #1a1a1a 100%)" : "#0d0d0d",
+          border: `1px solid ${active ? agent.color : "#2a2a2a"}`,
+          borderRadius: "16px", padding: "28px",
+          display: "flex", flexDirection: "column", gap: "16px",
+          transition: "all 0.3s ease",
+          boxShadow: active ? `0 0 30px ${agent.color}22` : "none",
+          position: "relative", overflow: "hidden",
+        }}>
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: "3px",
+            background: active ? `linear-gradient(90deg, ${agent.color}, ${agent.accent})` : "#2a2a2a",
+            transition: "background 0.4s ease",
+          }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{
+              fontSize: "28px", background: `${agent.color}18`, width: "52px", height: "52px",
+              borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center",
+              border: `1px solid ${agent.color}33`, flexShrink: 0,
+            }}>{agent.icon}</div>
+            <div>
+              <div style={{ fontFamily: "'Bebas Neue', cursive", fontSize: "20px", letterSpacing: "1.5px", color: "#fff" }}>{agent.name}</div>
+              <div style={{ fontSize: "12px", color: agent.accent, fontFamily: "monospace", letterSpacing: "0.5px" }}>{agent.tagline}</div>
+            </div>
+          </div>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && (e.metaKey || e.ctrlKey) && runAgent()}
+            placeholder={agent.placeholder}
+            rows={3}
+            style={{
+              background: "#181818", border: `1px solid ${input ? agent.color + "55" : "#333"}`,
+              borderRadius: "10px", color: "#e0e0e0", fontSize: "12.5px", lineHeight: "1.6",
+              padding: "14px", resize: "vertical", outline: "none", transition: "border 0.2s",
+              width: "100%",
+            }}
+          />
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={runAgent}
+              disabled={loading || !input.trim()}
+              style={{
+                flex: 1, background: loading ? "#333" : `linear-gradient(135deg, ${agent.color}, ${agent.accent})`,
+                border: "none", borderRadius: "8px", color: "#fff",
+                fontFamily: "'Bebas Neue', cursive", fontSize: "16px", letterSpacing: "2px",
+                padding: "12px", cursor: loading || !input.trim() ? "not-allowed" : "pointer",
+                opacity: loading || !input.trim() ? 0.5 : 1, transition: "all 0.2s",
+              }}
+            >{loading ? "THINKING..." : "DEPLOY AGENT  ⌘↵"}</button>
+            {(response || input) && (
+              <button onClick={reset} style={{
+                background: "#1e1e1e", border: "1px solid #333", borderRadius: "8px",
+                color: "#666", fontFamily: "monospace", fontSize: "13px", padding: "12px 16px", cursor: "pointer",
+              }}>↺</button>
+            )}
+          </div>
+          {(loading || response) && (
+            <div style={{
+              background: "#111", border: `1px solid ${agent.color}33`, borderRadius: "10px",
+              padding: "18px", maxHeight: "280px", overflowY: "auto",
+              fontSize: "13.5px", lineHeight: "1.75", color: "#d0d0d0",
+              fontFamily: "'IBM Plex Mono', monospace", whiteSpace: "pre-wrap",
+            }}>
+              {loading ? (
+                <div style={{ display: "flex", gap: "6px", alignItems: "center", color: agent.accent }}>
+                  <span style={{ animation: "pulse 1s infinite" }}>●</span>
+                  <span style={{ animation: "pulse 1s infinite 0.2s" }}>●</span>
+                  <span style={{ animation: "pulse 1s infinite 0.4s" }}>●</span>
+                  <span style={{ marginLeft: "8px", color: "#666", fontFamily: "monospace" }}>Agent working...</span>
+                </div>
+              ) : renderResponse(response)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function App() {
+      const [apiKey, setApiKey] = useState(() => sessionStorage.getItem("saf_key") || "");
+      const [filter, setFilter] = useState("all");
+
+      const handleUnlock = (key) => {
+        sessionStorage.setItem("saf_key", key);
+        setApiKey(key);
+      };
+
+      const handleLogout = () => {
+        sessionStorage.removeItem("saf_key");
+        setApiKey("");
+      };
+
+      if (!apiKey) return <ApiKeyGate onUnlock={handleUnlock} />;
+
+      const filtered = AGENTS.filter(a => filter === "all" || a.id === filter);
+
+      return (
+        <div style={{ minHeight: "100vh" }}>
+          {/* Header */}
+          <div style={{
+            borderBottom: "1px solid #1e1e1e", padding: "48px 48px 36px",
+            background: "linear-gradient(180deg, #0f0f0f 0%, #080808 100%)",
+            position: "relative", overflow: "hidden",
+          }}>
+            <div style={{
+              position: "absolute", inset: 0,
+              backgroundImage: "radial-gradient(circle at 20% 50%, #FF4D0011 0%, transparent 50%), radial-gradient(circle at 80% 20%, #0066FF11 0%, transparent 40%)",
+            }} />
+            <div style={{ position: "relative", maxWidth: "900px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px", color: "#FF4D00", letterSpacing: "3px", marginBottom: "12px" }}>
+                    ◆ SALES COMMAND CENTER
+                  </div>
+                  <h1 style={{
+                    fontFamily: "'Bebas Neue', cursive", fontSize: "clamp(48px, 6vw, 80px)",
+                    letterSpacing: "4px", margin: "0 0 12px", lineHeight: 1,
+                    background: "linear-gradient(135deg, #fff 40%, #888 100%)",
+                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                  }}>YOUR DEAL-CLOSING<br />AGENT FLEET</h1>
+                  <p style={{ color: "#666", fontSize: "15px", margin: 0, maxWidth: "500px", lineHeight: 1.7 }}>
+                    6 specialized AI agents — each a weapon for a different moment in your sales cycle.
+                  </p>
+                </div>
+                <button onClick={handleLogout} style={{
+                  background: "transparent", border: "1px solid #333", borderRadius: "8px",
+                  color: "#555", fontFamily: "monospace", fontSize: "11px", letterSpacing: "1px",
+                  padding: "8px 14px", cursor: "pointer", whiteSpace: "nowrap", marginTop: "8px",
+                }}>🔑 CHANGE KEY</button>
+              </div>
+            </div>
+            <div style={{ marginTop: "28px", display: "flex", gap: "8px", flexWrap: "wrap", position: "relative" }}>
+              {[
+                { id: "all", label: "All Agents" },
+                { id: "objection", label: "🛡️ Objections" },
+                { id: "email", label: "⚡ Email" },
+                { id: "discovery", label: "🔍 Discovery" },
+                { id: "closer", label: "🎯 Strategy" },
+                { id: "competitive", label: "⚔️ Competitive" },
+                { id: "coach", label: "🧠 Coaching" },
+              ].map(f => (
+                <button key={f.id} onClick={() => setFilter(f.id)} style={{
+                  background: filter === f.id ? "#fff" : "transparent",
+                  border: `1px solid ${filter === f.id ? "#fff" : "#333"}`,
+                  borderRadius: "100px", color: filter === f.id ? "#000" : "#888",
+                  fontFamily: "monospace", fontSize: "12px", padding: "6px 16px",
+                  cursor: "pointer", transition: "all 0.2s", letterSpacing: "0.5px",
+                }}>{f.label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grid */}
+          <div style={{
+            padding: "40px 48px 60px",
+            display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
+            gap: "24px", maxWidth: "1400px", margin: "0 auto",
+          }}>
+            {filtered.map((agent, i) => (
+              <div key={agent.id} className="agent-card" style={{ animationDelay: `${i * 80}ms`, opacity: 0 }}>
+                <AgentCard agent={agent} apiKey={apiKey} />
+              </div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: "center", padding: "0 0 40px", color: "#333", fontFamily: "'IBM Plex Mono', monospace", fontSize: "12px", letterSpacing: "1px" }}>
+            TIP: USE ⌘ + ENTER TO FIRE AN AGENT INSTANTLY
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
