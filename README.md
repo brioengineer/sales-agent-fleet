@@ -15,49 +15,6 @@
 | ⚔️ **Battlecard Bot** | Instant competitive positioning against any rival |
 | 🧠 **Call Coach** | Real-time script and talk track for awkward call moments |
 
----
-
-## 🛠️ Setup: Deploy to GitHub Pages (15 minutes)
-
-### Step 1 — Create a GitHub Account
-If you don't have one: go to [github.com](https://github.com) and sign up free.
-
----
-
-### Step 2 — Create a New Repository
-
-1. Click the **+** icon (top right) → **New repository**
-2. Name it: `sales-agent-fleet` (or anything you like)
-3. Set it to **Public** *(required for free GitHub Pages hosting)*
-4. Check **"Add a README file"**
-5. Click **Create repository**
-
----
-
-### Step 3 — Upload the App File
-
-1. In your new repo, click **Add file** → **Upload files**
-2. Drag and drop `index.html` from this folder
-3. Click **Commit changes**
-
----
-
-### Step 4 — Enable GitHub Pages
-
-1. Go to your repo's **Settings** tab
-2. Scroll down to **Pages** (in the left sidebar)
-3. Under **Source**, select **Deploy from a branch**
-4. Set Branch to **main**, folder to **/ (root)**
-5. Click **Save**
-6. Wait ~60 seconds, then refresh — you'll see your live URL:
-   ```
-   https://YOUR-USERNAME.github.io/sales-agent-fleet/
-   ```
-
-✅ **That's it. Share that URL with your team.**
-
----
-
 ## 🔑 How Your Team Uses It
 
 Each team member needs their own Anthropic API key (or you can share one key with the team).
