@@ -27,7 +27,7 @@ Each team member needs their own Anthropic API key.
 5. Add a small amount of credit (e.g. $10 — this lasts a long time at ~$0.01–0.03 per query)
 
 ### Logging In
-1. Visit your GitHub Pages URL (https://brioengineer.github.io/sales-agent-fleet/)
+1. Visit your GitHub Pages URL
 2. Paste your API key into the unlock screen
 3. Click **Unlock Agents**
 4. The key is saved for your browser session only — it disappears when you close the tab
