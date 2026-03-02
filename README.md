@@ -17,7 +17,7 @@
 
 ## 🔑 How To Use It
 
-Each team member needs their own Anthropic API key (or you can share one key with the team).
+Each team member needs their own Anthropic API key.
 
 ### Getting an API Key
 1. Go to [console.anthropic.com](https://console.anthropic.com)
